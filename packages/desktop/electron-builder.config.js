@@ -913,8 +913,18 @@ export default {
       // 桌面端内置的是 agent 的 JS bundle（glm/zcode.cjs，由 prepare:agent-bundle 生成），
       // Host 进程用 app 自带的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行 `zcode.cjs app-server --stdio`，
       // 不再随包内置独立 Node 二进制。远端 SSH/WSL 仍走原生二进制（无 Electron）。
+      // node_modules 必须从主树过滤并单独映射（同上方 cua-helper 的拆分模式）：electron-builder
+      // 会跳过 from 根目录的 node_modules，而 stageCredentialKeyring 正是把 @napi-rs/keyring
+      // stage 到 glm/node_modules，供独立 CLI（ELECTRON_RUN_AS_NODE 起 zcode.cjs）解析
+      // enc:v2:os 凭据。漏掉这条映射时安装包里 resources/glm 没有 node_modules，
+      // CLI 全部凭据操作报 “System credential storage is unavailable”（zai-org/feedback#1490）。
       from: `bundled-agents/${targetPlatform.key}/glm`,
       to: "glm",
+      filter: ["**/*", "!node_modules{,/**/*}", "!**/*.map"],
+    },
+    {
+      from: `bundled-agents/${targetPlatform.key}/glm/node_modules`,
+      to: "glm/node_modules",
       filter: ["**/*", "!**/*.map"],
     },
     {
